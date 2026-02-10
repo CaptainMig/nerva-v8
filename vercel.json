@@ -1,10 +1,6 @@
 {
-  "functions": {
-    "api/extract.js": {
-      "runtime": "@vercel/node@3"
-    },
-    "api/explain.js": {
-      "runtime": "@vercel/node@3"
-    }
-  }
+  "rewrites": [
+    { "source": "/api/extract", "destination": "/api/extract.js" },
+    { "source": "/api/explain", "destination": "/api/explain.js" }
+  ]
 }
