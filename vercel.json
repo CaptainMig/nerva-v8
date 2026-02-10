@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/extract.js": {
+      "runtime": "@vercel/node@3"
+    },
+    "api/explain.js": {
+      "runtime": "@vercel/node@3"
+    }
+  }
+}
