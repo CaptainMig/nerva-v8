@@ -1343,9 +1343,13 @@ function update() {
   setMetric('m-purity', 'bar-purity', result.purity);
   setMetric('m-entropy', 'bar-entropy', result.entropy);
 
-  // Explanation (toggled)
-  const explain = currentExplainMode === 'human' ? NERVA.explainHuman(result) : NERVA.explainAnalyst(result);
-  document.getElementById('nl-explanation').innerHTML = explain;
+  // Explanation (toggled) — prefer LLM explanation when available
+  if (currentExplainMode === 'human' && llmExplanationCache && lastScenarioText) {
+    document.getElementById('nl-explanation').innerHTML = `<strong style="color:var(--accent);font-size:0.6rem;letter-spacing:0.08em;">CLAUDE ASSESSMENT</strong><br><br>${llmExplanationCache}`;
+  } else {
+    const explain = currentExplainMode === 'human' ? NERVA.explainHuman(result) : NERVA.explainAnalyst(result);
+    document.getElementById('nl-explanation').innerHTML = explain;
+  }
 
   // API output
   const json = NERVA.toJSON(result);
@@ -1368,6 +1372,8 @@ function update() {
 ['e', 's', 'r', 'sup', 'stab'].forEach(k => {
   sliders[k].addEventListener('input', () => {
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    llmExplanationCache = '';  // Clear LLM cache on manual slider change
+    lastScenarioText = '';
     update();
   });
 });
@@ -1388,6 +1394,8 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
     // Clear NL input
     document.getElementById('nl-input').value = '';
     document.getElementById('nl-extracted').classList.remove('show');
+    llmExplanationCache = '';
+    lastScenarioText = '';
     trailPoints = [];
     update();
   });
@@ -1421,37 +1429,141 @@ document.querySelectorAll('.explain-toggle-btn').forEach(btn => {
   });
 });
 
+// ─── LLM-POWERED EXTRACTION ───
+let lastScenarioText = '';
+
+async function extractViaLLM(scenario) {
+  const resp = await fetch('/api/extract', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scenario })
+  });
+  if (!resp.ok) throw new Error(await resp.text());
+  return await resp.json();
+}
+
+async function explainViaLLM(scenario, inputs, nerva) {
+  const resp = await fetch('/api/explain', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scenario, inputs, nerva })
+  });
+  if (!resp.ok) throw new Error(await resp.text());
+  return await resp.json();
+}
+
 // NL Evaluate
-document.getElementById('eval-btn').addEventListener('click', () => {
+document.getElementById('eval-btn').addEventListener('click', async () => {
   const text = document.getElementById('nl-input').value.trim();
   if (!text) return;
+  lastScenarioText = text;
 
-  const result = NLExtractor.extract(text);
-
-  // Set sliders
-  sliders.e.value = result.e;
-  sliders.s.value = result.s;
-  sliders.r.value = result.r;
-  sliders.sup.value = result.sup;
-  sliders.stab.value = result.stab;
-
-  // Show extraction tags
+  const btn = document.getElementById('eval-btn');
   const el = document.getElementById('nl-extracted');
-  if (result.tags.length > 0) {
-    el.innerHTML = '<span style="color:var(--text-muted)">Extracted: </span>' +
-      result.tags.map(t => `<span class="tag">${t}</span>`).join('') +
-      `<span style="color:var(--text-muted); margin-left:0.3rem;">(${result.confidence} confidence)</span>`;
+
+  // Show loading state
+  btn.disabled = true;
+  btn.textContent = 'Extracting...';
+  el.innerHTML = '<span style="color:var(--text-muted)">Calling Claude to analyze scenario...</span>';
+  el.classList.add('show');
+
+  try {
+    // Try LLM extraction first
+    const llmResult = await extractViaLLM(text);
+
+    // Map LLM response to slider values
+    const e = Math.max(0, Math.min(1, llmResult.urgency ?? 0.5));
+    const s = Math.max(0, Math.min(1, llmResult.strategy ?? 0.5));
+    const r = Math.max(0, Math.min(1, llmResult.risk ?? 0.5));
+    const sup = Math.max(0, Math.min(1, llmResult.support ?? 0.5));
+    const stab = Math.max(0, Math.min(1, llmResult.stability ?? 0.5));
+
+    sliders.e.value = e;
+    sliders.s.value = s;
+    sliders.r.value = r;
+    sliders.sup.value = sup;
+    sliders.stab.value = stab;
+
+    // Build extraction display
+    const tags = [];
+    if (e > 0.65) tags.push('urgency:high');
+    else if (e < 0.35) tags.push('urgency:low');
+    if (s > 0.65) tags.push('strategy:strong');
+    else if (s < 0.35) tags.push('strategy:weak');
+    if (r > 0.65) tags.push('risk:high');
+    else if (r < 0.35) tags.push('risk:low');
+    if (sup > 0.65) tags.push('evidence:strong');
+    else if (sup < 0.35) tags.push('evidence:weak');
+    if (stab > 0.65) tags.push('conditions:stable');
+    else if (stab < 0.35) tags.push('conditions:unstable');
+
+    // Show door type if available
+    if (llmResult.irreversibility != null) {
+      tags.push(llmResult.irreversibility > 0.6 ? 'one-way door' : 'two-way door');
+    }
+
+    el.innerHTML = '<span style="color:var(--accent)">✓ Claude extracted: </span>' +
+      tags.map(t => `<span class="tag">${t}</span>`).join('') +
+      (llmResult.reasoning ? `<br><span style="color:var(--text-muted);font-size:0.6rem;margin-top:0.3rem;display:inline-block;">${llmResult.reasoning}</span>` : '');
     el.classList.add('show');
-  } else {
-    el.innerHTML = '<span style="color:var(--text-muted)">No strong signals detected — using defaults. Try adding keywords like "urgent", "high risk", "weak evidence", etc.</span>';
+
+  } catch (err) {
+    // Fallback to client-side extraction
+    console.warn('LLM extraction failed, falling back to local:', err);
+    const result = NLExtractor.extract(text);
+    sliders.e.value = result.e;
+    sliders.s.value = result.s;
+    sliders.r.value = result.r;
+    sliders.sup.value = result.sup;
+    sliders.stab.value = result.stab;
+
+    if (result.tags.length > 0) {
+      el.innerHTML = '<span style="color:var(--warn)">⚠ Local fallback: </span>' +
+        result.tags.map(t => `<span class="tag">${t}</span>`).join('') +
+        `<span style="color:var(--text-muted); margin-left:0.3rem;">(${result.confidence})</span>`;
+    } else {
+      el.innerHTML = '<span style="color:var(--text-muted)">No strong signals detected — using defaults.</span>';
+    }
     el.classList.add('show');
   }
 
-  // Clear preset selection
+  btn.disabled = false;
+  btn.textContent = 'Evaluate';
+
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   trailPoints = [];
   update();
+
+  // Now fetch LLM explanation asynchronously
+  fetchLLMExplanation();
 });
+
+// LLM Explanation fetch (async, non-blocking)
+let llmExplanationCache = '';
+
+async function fetchLLMExplanation() {
+  if (!lastScenarioText) return;
+
+  const e = +sliders.e.value, s = +sliders.s.value, r = +sliders.r.value;
+  const sup = +sliders.sup.value, stab = +sliders.stab.value;
+  const tau = resolveTau();
+  const result = NERVA.compute(e, s, r, sup, stab, tau);
+  const json = NERVA.toJSON(result);
+
+  try {
+    const resp = await explainViaLLM(lastScenarioText, result.input, json);
+    if (resp.explanation) {
+      llmExplanationCache = resp.explanation;
+      // If currently in human mode, update the display
+      if (currentExplainMode === 'human') {
+        document.getElementById('nl-explanation').innerHTML = `<strong style="color:var(--accent);font-size:0.6rem;letter-spacing:0.08em;">CLAUDE ASSESSMENT</strong><br><br>${resp.explanation}`;
+      }
+    }
+  } catch (err) {
+    console.warn('LLM explain failed, using local:', err);
+    llmExplanationCache = '';
+  }
+}
 
 // Enter key in textarea
 document.getElementById('nl-input').addEventListener('keydown', (e) => {
