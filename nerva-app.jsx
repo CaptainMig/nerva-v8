@@ -464,7 +464,7 @@ function NervaApp() {
   if (safetyFlag) return <SafetyScreen flag={safetyFlag} onBack={() => setSafetyFlag(null)} />;
 
   return (
-    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, fontFamily: T.sans, display: 'flex', flexDirection: 'column', overscrollBehavior: 'contain' }}>
+    <div style={{ minHeight: '100dvh', background: T.bg, color: T.ink, fontFamily: T.sans, display: 'flex', flexDirection: 'column', overscrollBehavior: 'contain', maxWidth: 430, margin: '0 auto', position: 'relative' }}>
       {/* logo */}
       <div style={{ padding: 'max(52px, calc(env(safe-area-inset-top) + 16px)) 28px 22px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ font: `600 10.5px/1 ${T.mono}`, letterSpacing: '0.42em', color: T.accent }}>NERVA</div>
