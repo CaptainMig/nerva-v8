@@ -84,12 +84,10 @@ function AdjustRow({ factor, value, conf, onValue, onConf }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// TUNE SHEET — math quadrant + sliders on one screen (Opus design)
-// Phase space pinned at top; factor controls scroll beneath.
-// Both "Adjust inputs" and "Show the math →" open this sheet.
+// PHASE SPACE
 // ════════════════════════════════════════════════════════════════════════════
-function PhaseSpace({ result, c, compact = false }) {
-  const W = 310, H = compact ? 180 : 240, Ml = 32, Mr = 12, Mt = 10, Mb = compact ? 18 : 24;
+function PhaseSpace({ result, c }) {
+  const W = 310, H = 240, Ml = 32, Mr = 12, Mt = 10, Mb = 24;
   const pw = W - Ml - Mr, ph = H - Mt - Mb, D = 0.68;
   const xp = val => Ml + (val / D) * pw;
   const yp = val => Mt + (1 - val / D) * ph;
@@ -134,9 +132,28 @@ function PhaseSpace({ result, c, compact = false }) {
   );
 }
 
-function TuneSheet({ onClose }) {
-  const { v, c, result, updateValue, updateConfidence } = useNervaV11();
-  const [densityOpen, setDensityOpen] = useA(false);
+function AdjustSheet({ onClose }) {
+  const { v, c, updateValue, updateConfidence } = useNervaV11();
+  return (
+    <div style={{ padding: '4px 24px 24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottom: `1px solid ${T.line}`, marginBottom: 20 }}>
+        <div style={{ font: `600 10.5px/1 ${T.mono}`, letterSpacing: '0.18em', color: T.inkFaint }}>ADJUST THE INPUTS</div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.inkDim, font: `14px/1 ${T.sans}`, cursor: 'pointer', padding: '4px 8px' }}>✕</button>
+      </div>
+      {_NA.FACTORS.map(f => (
+        <AdjustRow key={f.k} factor={f} value={v[f.k]} conf={c[f.k]}
+          onValue={val => updateValue(f.k, val)}
+          onConf={val => updateConfidence(f.k, val)} />
+      ))}
+      <div style={{ font: `12px/1.6 ${T.sans}`, color: T.inkFaint, marginTop: 4 }}>
+        The verdict updates live as you adjust. Lower your confidence on a factor and watch the read change.
+      </div>
+    </div>
+  );
+}
+
+function MathSheet({ onClose }) {
+  const { result, c } = useNervaV11();
   if (!result) return null;
   const fmt = (x, d = 3) => (x == null || isNaN(x)) ? '—' : Number(x.toFixed(d));
   const vc = _NA.VC[result.decision] || T.ink;
@@ -150,74 +167,38 @@ function TuneSheet({ onClose }) {
   ];
   return (
     <div style={{ padding: '4px 24px 24px' }}>
-      {/* header — verdict chip updates live */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottom: `1px solid ${T.line}`, marginBottom: 16, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ font: `600 10.5px/1 ${T.mono}`, letterSpacing: '0.18em', color: T.inkFaint }}>TUNE & VERIFY</div>
-          <span style={{ font: `700 9px/1 ${T.mono}`, padding: '3px 8px', borderRadius: 3, background: `${vc}22`, color: vc, letterSpacing: '0.14em', border: `1px solid ${vc}44` }}>
-            {result.decision}
-          </span>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16, borderBottom: `1px solid ${T.line}`, marginBottom: 18 }}>
+        <div style={{ font: `600 10.5px/1 ${T.mono}`, letterSpacing: '0.18em', color: T.inkFaint }}>THE MATH</div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: T.inkDim, font: `14px/1 ${T.sans}`, cursor: 'pointer', padding: '4px 8px' }}>✕</button>
       </div>
-
-      {/* phase space — compact, updates live as sliders move */}
-      <div style={{ font: `9.5px/1 ${T.mono}`, color: T.inkFaint, letterSpacing: '0.16em', marginBottom: 8 }}>
-        PHASE SPACE · INTENT × INTEGRITY
-      </div>
-      <PhaseSpace result={result} c={c} compact />
-      <div style={{ display: 'flex', gap: 14, margin: '5px 0 10px', justifyContent: 'center', font: `9.5px/1 ${T.mono}`, color: T.inkFaint }}>
+      <div style={{ font: `9.5px/1 ${T.mono}`, color: T.inkFaint, letterSpacing: '0.16em', marginBottom: 10 }}>PHASE SPACE · INTENT × INTEGRITY</div>
+      <PhaseSpace result={result} c={c} />
+      <div style={{ display: 'flex', gap: 16, margin: '6px 0 22px', justifyContent: 'center', font: `10px/1 ${T.mono}`, color: T.inkFaint }}>
         <span><span style={{ color: vc }}>●</span> mixed (v11)</span>
         <span><span style={{ color: T.inkDim }}>○</span> pure (v10)</span>
         <span><span style={{ color: T.red, opacity: 0.6 }}>- -</span> τ</span>
       </div>
-
-      {/* metric strip — 6 chips, live */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 22 }}>
         {metrics.map((m, i) => (
-          <div key={i} style={{ background: T.surfaceHi, borderRadius: 5, padding: '8px 6px', textAlign: 'center' }}>
-            <div style={{ font: `9px/1 ${T.mono}`, color: T.inkFaint, letterSpacing: '0.12em', marginBottom: 4 }}>{m.l}</div>
-            <div style={{ font: `500 15px/1 ${T.mono}`, color: m.c || T.ink, fontVariantNumeric: 'tabular-nums' }}>{m.v}</div>
-            <div style={{ font: `8.5px/1 ${T.sans}`, color: T.inkGhost, marginTop: 3 }}>{m.s}</div>
+          <div key={i} style={{ background: T.surfaceHi, borderRadius: 6, padding: '10px 8px', textAlign: 'center' }}>
+            <div style={{ font: `9px/1 ${T.mono}`, color: T.inkFaint, letterSpacing: '0.14em', marginBottom: 5 }}>{m.l}</div>
+            <div style={{ font: `500 17px/1 ${T.mono}`, color: m.c || T.ink, fontVariantNumeric: 'tabular-nums' }}>{m.v}</div>
+            <div style={{ font: `9px/1 ${T.sans}`, color: T.inkGhost, marginTop: 4 }}>{m.s}</div>
           </div>
         ))}
       </div>
-
-      <div style={{ borderTop: `1px solid ${T.line}`, marginBottom: 18 }} />
-
-      {/* factor sliders */}
-      <div style={{ font: `600 9.5px/1 ${T.mono}`, letterSpacing: '0.18em', color: T.inkFaint, marginBottom: 16 }}>ADJUST THE INPUTS</div>
-      {_NA.FACTORS.map(f => (
-        <AdjustRow key={f.k} factor={f} value={v[f.k]} conf={c[f.k]}
-          onValue={val => updateValue(f.k, val)}
-          onConf={val => updateConfidence(f.k, val)} />
-      ))}
-      <div style={{ font: `11.5px/1.6 ${T.sans}`, color: T.inkFaint, marginTop: 4, marginBottom: 18 }}>
-        The verdict and phase space update live as you adjust. Lower confidence on a factor to see how it shifts the read.
-      </div>
-
-      {/* collapsible density matrix */}
-      <button onClick={() => setDensityOpen(o => !o)} style={{
-        width: '100%', textAlign: 'left', background: 'transparent', border: `1px solid ${T.line}`,
-        borderRadius: 5, padding: '10px 14px', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: densityOpen ? 12 : 0,
-      }}>
-        <span style={{ font: `600 9px/1 ${T.mono}`, color: T.inkFaint, letterSpacing: '0.16em' }}>DENSITY MATRIX</span>
-        <span style={{ font: `10px/1 ${T.mono}`, color: T.inkFaint }}>{densityOpen ? '▲' : '▼'}</span>
-      </button>
-      {densityOpen && (
-        <div style={{ background: 'rgba(245,185,66,0.06)', border: `1px solid rgba(245,185,66,0.20)`, borderRadius: '0 0 5px 5px', padding: '14px 16px', marginBottom: 18 }}>
-          <div style={{ font: `500 12.5px/1.4 ${T.mono}`, color: T.ink, marginBottom: 6 }}>
-            ρ = C · ρ<sub style={{ fontSize: 8 }}>pure</sub> + (1 − C) · <em>I</em>/2
-          </div>
-          <div style={{ font: `italic 10.5px/1.5 ${T.serif}`, color: T.inkDim, marginBottom: 10 }}>
-            C = {fmt(result.aggregate_C, 3)} · |r₀| = {fmt(result.bloch_pure.magnitude, 3)} → |r| = {fmt(result.bloch.magnitude, 3)}
-          </div>
-          <div style={{ font: `10px/1.6 ${T.mono}`, color: T.inkGhost, letterSpacing: '0.03em', paddingTop: 12, borderTop: `1px solid ${T.line}` }}>
-            Nielsen &amp; Chuang (2010) Ch. 2 &amp; 11 · Shannon (1948) · Baumgratz–Cramer–Plenio (2014)
-          </div>
+      <div style={{ background: 'rgba(245,185,66,0.06)', border: `1px solid rgba(245,185,66,0.20)`, borderRadius: 6, padding: '14px 16px', marginBottom: 18 }}>
+        <div style={{ font: `9.5px/1 ${T.mono}`, color: T.inkFaint, letterSpacing: '0.14em', marginBottom: 8 }}>DENSITY MATRIX</div>
+        <div style={{ font: `500 12.5px/1.4 ${T.mono}`, color: T.ink, marginBottom: 6 }}>
+          ρ = C · ρ<sub style={{ fontSize: 8 }}>pure</sub> + (1 − C) · <em>I</em>/2
         </div>
-      )}
+        <div style={{ font: `italic 10.5px/1.5 ${T.serif}`, color: T.inkDim }}>
+          C = {fmt(result.aggregate_C, 3)} · |r₀| = {fmt(result.bloch_pure.magnitude, 3)} → |r| = {fmt(result.bloch.magnitude, 3)}
+        </div>
+      </div>
+      <div style={{ font: `10px/1.6 ${T.mono}`, color: T.inkGhost, letterSpacing: '0.03em', paddingTop: 14, borderTop: `1px solid ${T.line}` }}>
+        Nielsen &amp; Chuang (2010) Ch. 2 &amp; 11 · Shannon (1948) · Baumgratz–Cramer–Plenio (2014)
+      </div>
     </div>
   );
 }
@@ -343,7 +324,7 @@ function ComposeView({ text, setText, onScore, onSample, estimateNote }) {
 // ════════════════════════════════════════════════════════════════════════════
 // CHECKPOINT VIEW
 // ════════════════════════════════════════════════════════════════════════════
-function CheckpointView({ text, cid, onReset, onTune, verdictStyle, texture, ticks }) {
+function CheckpointView({ text, cid, onReset, onMath, onAdjust, verdictStyle, texture, ticks }) {
   const { v, c, result } = useNervaV11();
   const CheckpointCard = window.CheckpointCard;
   return (
@@ -363,7 +344,7 @@ function CheckpointView({ text, cid, onReset, onTune, verdictStyle, texture, tic
       <CheckpointCard
         result={result} v={v} c={c} cid={cid} verdictStyle={verdictStyle}
         texture={texture} ticks={ticks}
-        onShowMath={onTune} onAdjust={onTune}
+        onShowMath={onMath} onAdjust={onAdjust}
       />
 
       <div style={{ font: `11px/1.5 ${T.mono}`, color: T.inkGhost, letterSpacing: '0.04em', textAlign: 'center', marginTop: 18 }}>
@@ -402,7 +383,8 @@ function NervaApp() {
   const [cid, setCid] = useA('');
   const [estimateNote, setEstimateNote] = useA(null);
   const [safetyFlag, setSafetyFlag] = useA(null);
-  const [tuneOpen, setTuneOpen] = useA(false);
+  const [adjustOpen, setAdjustOpen] = useA(false);
+  const [mathOpen, setMathOpen] = useA(false);
   const [showDisclaimer, setShowDisclaimer] = useA(() => !localStorage.getItem('nerva_disclaim_v1'));
 
   const applyFactors = useACb((s) => {
@@ -491,13 +473,20 @@ function NervaApp() {
 
       {view === 'compose'
         ? <ComposeView text={text} setText={setText} onScore={onScore} onSample={onSample} estimateNote={estimateNote} />
-        : <CheckpointView text={text} cid={cid} onReset={reset} onTune={() => setTuneOpen(true)} verdictStyle={t.verdict} texture={t.texture} ticks={t.ticks} />}
+        : <CheckpointView text={text} cid={cid} onReset={reset}
+            onMath={() => setMathOpen(true)} onAdjust={() => setAdjustOpen(true)}
+            verdictStyle={t.verdict} texture={t.texture} ticks={t.ticks} />}
 
       <div style={{ height: 'max(28px, env(safe-area-inset-bottom))', flexShrink: 0 }} />
 
-      {tuneOpen && (
-        <BottomSheet onClose={() => setTuneOpen(false)} zIndex={20}>
-          <TuneSheet onClose={() => setTuneOpen(false)} />
+      {adjustOpen && (
+        <BottomSheet onClose={() => setAdjustOpen(false)} zIndex={20}>
+          <AdjustSheet onClose={() => setAdjustOpen(false)} />
+        </BottomSheet>
+      )}
+      {mathOpen && (
+        <BottomSheet onClose={() => setMathOpen(false)} zIndex={20}>
+          <MathSheet onClose={() => setMathOpen(false)} />
         </BottomSheet>
       )}
 
