@@ -294,7 +294,7 @@ function NervaV11Provider({ children }) {
   }, []);
 
   // API status
-  const [api, setApi] = useV11State({ latency: 92, region: 'us-west-2', model: 'claude-opus-4-8', status: 'nominal', uptime: 99.984 });
+  const [api, setApi] = useV11State({ latency: 92, region: 'us-west-2', model: 'nerva-v11-opus-4.8', status: 'nominal', uptime: 99.984 });
   useV11Effect(() => {
     const id = setInterval(() => {
       setApi(a => ({ ...a, latency: Math.max(60, Math.min(180, a.latency + (Math.random()-0.5)*14)) }));

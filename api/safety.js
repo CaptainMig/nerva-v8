@@ -1,75 +1,71 @@
-// api/safety.js — NERVA AI safety classifier
-// Runs BEFORE /api/parse on every SCORE IT request.
-// Returns { category } where category is one of:
-//   'crisis' | 'medical' | 'legal' | 'financial' | 'safe'
-// Fails OPEN (returns 'safe') on any server error so a network blip
-// never blocks a legitimate decision from being scored.
-// The client-side keyword classifier in nerva-mobile-app.jsx is the
-// belt-and-suspenders first pass; this is the real AI gate.
-
+// api/safety.js — NERVA safety classifier endpoint.
+// POST { scenario } → { category: "crisis"|"medical"|"legal"|"financial"|"safe" }
+// Uses claude-opus-4-8 (same model as /api/parse).
+// Fast: focused prompt, max_tokens 32 — only needs a tiny JSON object.
+// Returns 500 on any AI/parse failure; the client treats that as fail-closed.
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') return res.status(405).end();
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { scenario } = req.body || {};
-  if (!scenario || typeof scenario !== 'string') {
-    return res.status(200).json({ category: 'safe' });
-  }
+  if (!scenario || !scenario.trim()) return res.status(400).json({ error: 'No scenario provided' });
 
-  const PROMPT = `You are a strict safety classifier for NERVA, a tool that helps people reason through OPERATIONAL decisions (work, logistics, projects). You do NOT give medical, legal, or financial advice, and you are not a crisis service.
-
-Classify the decision below into EXACTLY ONE category:
-- "crisis": any sign of self-harm, suicide, wanting to die, or intent to harm others.
-- "medical": seeking a medical decision, diagnosis, treatment, medication, or health advice.
-- "legal": seeking a legal decision or legal advice (lawsuits, contracts as legal counsel, liability).
-- "financial": seeking personal investment, securities, tax, or financial advice.
-- "safe": an ordinary operational / business / personal-logistics decision with none of the above.
-
-When genuinely ambiguous between safe and a sensitive category, choose the sensitive category.
-Respond with MINIFIED JSON ONLY, no prose: {"category":"<one of the five>"}
-
-DECISION:
-"""
-${scenario.slice(0, 2000)}
-"""`;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: 'claude-opus-4-8',
         max_tokens: 32,
-        messages: [{ role: 'user', content: PROMPT }],
+        messages: [{
+          role: 'user',
+          content: `You are NERVA's safety classifier. Classify the scenario into exactly one category and reply with ONLY valid JSON, no markdown, no explanation.
+
+Scenario: "${scenario.replace(/"/g, '\\"')}"
+
+Categories:
+- "crisis"    — explicit suicidal ideation, self-harm intent, or active personal safety emergency
+- "medical"   — seeking personal medical diagnosis or treatment advice for oneself
+- "legal"     — seeking legal counsel for the user's own specific case
+- "financial" — seeking personal investment, tax, or financial advice for oneself
+- "safe"      — an operational or personal decision; NERVA is the right tool
+
+Operational decisions involving risk, stakes, or uncertainty — including decisions a professional makes in their own domain — are "safe". Only flag content where this tool would actively cause harm by engaging.
+
+Reply format: {"category":"<value>"}`,
+        }],
       }),
     });
 
-    if (!r.ok) throw new Error(`Anthropic HTTP ${r.status}`);
+    if (!response.ok) {
+      const err = await response.text();
+      console.error('Anthropic error:', response.status, err);
+      return res.status(500).json({ error: 'Upstream error', status: response.status });
+    }
 
-    const data = await r.json();
-    const text = data?.content?.[0]?.text || '';
-    const match = text.match(/\{[\s\S]*?\}/);
-    const obj = match ? JSON.parse(match[0]) : null;
-    const cat = obj?.category?.toLowerCase() || 'safe';
+    const data = await response.json();
+    const raw = (data.content?.[0]?.text || '').replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(raw);
+
     const VALID = ['crisis', 'medical', 'legal', 'financial', 'safe'];
+    if (!VALID.includes(parsed.category)) {
+      console.error('Unexpected category:', parsed.category);
+      return res.status(500).json({ error: 'Unexpected category', raw });
+    }
 
-    return res.status(200).json({
-      category: VALID.includes(cat) ? cat : 'safe',
-    });
-  } catch (e) {
-    // Fail open — a server error is not a reason to block the user.
-    // The keyword classifier already ran client-side as a first pass.
-    console.error('[nerva/safety] error, failing open:', e.message);
-    return res.status(200).json({ category: 'safe' });
+    return res.status(200).json({ category: parsed.category });
+  } catch (err) {
+    console.error('Safety check error:', err);
+    return res.status(500).json({ error: 'Safety check failed', detail: err.message });
   }
 }
