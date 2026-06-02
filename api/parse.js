@@ -1,77 +1,92 @@
-// api/parse.js — NERVA AI scenario parser
-// Takes { scenario: string } and returns the five v11 input values
-// plus five confidence scores, inferred from the scenario text.
-// Model: claude-opus-4-8
-
+// api/parse.js — Vercel serverless function for NERVA v10 AI scenario parser
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') return res.status(405).end();
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const { scenario } = req.body || {};
-  if (!scenario || typeof scenario !== 'string') {
-    return res.status(400).json({ error: 'scenario required' });
-  }
+  if (!scenario) return res.status(400).json({ error: 'No scenario provided' });
 
-  const PROMPT = `You are an expert decision analyst for NERVA, a decision-gate system.
-Given the scenario below, infer values for all ten fields (five point estimates + five confidence scores).
-
-FIELDS — return all ten, values between 0 and 1:
-  E   = Urgency: how time-pressured is this? (0=none, 1=extreme)
-  S   = Strategy: how well-planned is the approach? (0=none, 1=excellent)
-  R   = Risk: how bad could the downside be? (0=none, 1=catastrophic)
-  Sp  = Support: how solid is the evidence / backing? (0=none, 1=rock-solid)
-  St  = Stability: how stable is the surrounding situation? (0=volatile, 1=very stable)
-  cE  = confidence in your E estimate (0=guessing, 1=certain)
-  cS  = confidence in your S estimate
-  cR  = confidence in your R estimate
-  cSp = confidence in your Sp estimate
-  cSt = confidence in your St estimate
-
-CONFIDENCE GUIDE: if you had to infer the value from vague text, set confidence low (0.2–0.4).
-If the scenario gives clear evidence for a field, set confidence high (0.75–0.95).
-If a field is genuinely ambiguous, set it near 0.5 with low confidence.
-
-Respond with MINIFIED JSON ONLY — no prose, no markdown:
-{"E":0.0,"S":0.0,"R":0.0,"Sp":0.0,"St":0.0,"cE":0.0,"cS":0.0,"cR":0.0,"cSp":0.0,"cSt":0.0}
-
-SCENARIO:
-"""
-${scenario.slice(0, 3000)}
-"""`;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
 
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
         model: 'claude-opus-4-8',
-        max_tokens: 128,
-        messages: [{ role: 'user', content: PROMPT }],
-      }),
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: `You are NERVA's scenario parser and safety gate. Reply with ONLY valid JSON, no markdown, no explanation.
+
+Scenario: "${scenario}"
+
+STEP 1 — SAFETY GATE (evaluate first, before extracting anything):
+  • Return {"safe":"crisis"} ONLY if text contains explicit suicidal ideation, self-harm intent, or an active personal safety emergency.
+  • Return {"safe":"professional"} ONLY if text explicitly asks for personalized medical diagnosis, legal counsel for the user's own case, or personal investment advice.
+  • Operational decisions that involve stakes, risk, or uncertainty — including decisions a professional makes in their own domain — are NOT flagged. NERVA is built for those.
+  If either condition above is met, return only the flagged object and nothing else.
+
+STEP 2 — EXTRACT PARAMETERS (only if not flagged above):
+
+VALUE parameters (what the numbers are):
+- E (urgency): how time-critical? 0=none, 1=maximum
+- S (strategy quality): how well-planned? 0=no plan, 1=excellent
+- R (risk exposure): how severe is downside? 0=none, 1=catastrophic/irreversible
+- Sp (support/evidence): how strong is the evidence base? 0=none, 1=certain
+- St (stability): how stable is environment? 0=chaotic, 1=very stable
+
+CONFIDENCE parameters (how well-sourced is each value — infer from language):
+- cE: confidence in E — confirmed alert/emergency=0.90, estimated priority=0.60, vague urgency=0.35
+- cS: confidence in S — reviewed/tested plan=0.90, working draft=0.65, ad-hoc/unclear=0.35
+- cR: confidence in R — measured/instrumented=0.92, assessed/modeled=0.65, assumed/unknown=0.30
+- cSp: confidence in Sp — API/sensor/telemetry data=0.93, structured reports/logs=0.70, gut feel/defaults=0.28
+- cSt: confidence in St — live monitoring dashboards=0.92, recent manual check=0.65, assumed stable=0.32
+
+Confidence calibration:
+- Instrumented/telemetry/sensor/API/live-data source → 0.85–0.95
+- Self-reported/estimated/structured-plan → 0.50–0.72
+- Vague/missing/assumed/default/unknown → 0.25–0.45
+- Degraded comms or partial data → reduce affected confidence by 0.15–0.25
+- "Confidence X%" language in scenario → map directly
+
+Value calibration:
+- Medical emergencies/life-threat: E=0.90-0.95, R=0.85-0.95, St=0.15-0.35
+- Lethal/weapons/surgery: R >= 0.70 minimum
+- HFT/trading: E=0.75-0.90, S=0.80-0.95
+- AV normal ops: R=0.20-0.45, St=0.65-0.85
+- Comms degraded/personnel unavailable: St=0.15-0.40
+- AI-owned/automated process: Sp=0.45-0.65
+- 24h commitment window: R >= 0.55
+
+Reply format:
+  If flagged: {"safe":"crisis"} or {"safe":"professional"}
+  If safe:    {"safe":null,"E":0.00,"S":0.00,"R":0.00,"Sp":0.00,"St":0.00,"cE":0.00,"cS":0.00,"cR":0.00,"cSp":0.00,"cSt":0.00}`
+        }]
+      })
     });
 
-    if (!r.ok) throw new Error(`Anthropic HTTP ${r.status}`);
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
 
-    const data = await r.json();
-    const text = data?.content?.[0]?.text || '';
-    const match = text.match(/\{[\s\S]*?\}/);
-    if (!match) throw new Error('No JSON in response');
+    // Safety gate — return flag immediately, do not expose numeric params
+    if (parsed.safe) {
+      return res.status(200).json({ safe: parsed.safe });
+    }
 
-    const parsed = JSON.parse(match[0]);
-
-    // Clamp all values to [0, 1]
-    const clamp = (x) => Math.max(0, Math.min(1, parseFloat(x) || 0));
+    const clamp = (v) => Math.max(0, Math.min(1, parseFloat(v) || 0));
     return res.status(200).json({
+      safe: null,
       E:   clamp(parsed.E),
       S:   clamp(parsed.S),
       R:   clamp(parsed.R),
@@ -83,8 +98,8 @@ ${scenario.slice(0, 3000)}
       cSp: clamp(parsed.cSp),
       cSt: clamp(parsed.cSt),
     });
-  } catch (e) {
-    console.error('[nerva/parse] error:', e.message);
-    return res.status(500).json({ error: 'parse failed' });
+  } catch (err) {
+    console.error('Parse error:', err);
+    return res.status(500).json({ error: 'Parse failed', detail: err.message });
   }
 }

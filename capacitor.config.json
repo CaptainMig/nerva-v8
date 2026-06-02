@@ -1,0 +1,17 @@
+{
+  "appId": "com.starpoint.nerva",
+  "appName": "NERVA",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Preferences": {},
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "backgroundColor": "#0a0e15",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    }
+  }
+}

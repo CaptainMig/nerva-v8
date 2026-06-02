@@ -1,0 +1,29 @@
+{
+  "name": "nerva-mobile",
+  "version": "1.0.0",
+  "description": "NERVA — mixed-state decision engine, mobile",
+  "private": true,
+  "scripts": {
+    "build:mobile": "node scripts/build-mobile.js",
+    "sync": "npm run build:mobile && npx cap sync",
+    "sync:ios": "npm run build:mobile && npx cap sync ios",
+    "sync:android": "npm run build:mobile && npx cap sync android",
+    "open:ios": "npx cap open ios",
+    "open:android": "npx cap open android",
+    "serve": "npx serve www -p 3000"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor/preferences": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
+    "serve": "^14.0.0"
+  },
+  "notes": {
+    "revenuecat": "Add @revenuecat/purchases-capacitor when flipping PAYWALL_ENABLED=true",
+    "supabase": "Add @supabase/supabase-js when wiring nerva-sync-stub.js"
+  }
+}
