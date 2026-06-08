@@ -9,6 +9,9 @@ const { useState: useA, useCallback: useACb, useMemo: useAMemo, useRef: useARef 
 const _NA = window.NERVA;
 const T = _NA.T;
 
+// Vercel Analytics event helper — no-op if script hasn't loaded yet
+const va = (name, props) => { try { window.va?.('event', name, props); } catch (_) {} };
+
 // ════════════════════════════════════════════════════════════════════════════
 // BOTTOM SHEET  (mounted only while open; static resting state)
 // ════════════════════════════════════════════════════════════════════════════
@@ -327,6 +330,10 @@ function ComposeView({ text, setText, onScore, onSample, estimateNote }) {
 function CheckpointView({ text, cid, onReset, onMath, onAdjust, verdictStyle, texture, ticks }) {
   const { v, c, result } = useNervaV11();
   const CheckpointCard = window.CheckpointCard;
+  const { useEffect: useAEffect } = React;
+  useAEffect(() => {
+    if (result) va('verdict', { decision: result.decision, ev: +(result.ev || 0).toFixed(2), signal: +(result.bloch?.magnitude || 0).toFixed(3) });
+  }, [cid]);
   return (
     <div style={{ padding: '0 22px', flex: 1, display: 'flex', flexDirection: 'column' }}>
       <button onClick={onReset} style={{
@@ -401,6 +408,7 @@ function NervaApp() {
     setText(s.text);
     setEstimateNote(null);
     applyFactors(s);
+    va('sample_selected', { id: s.id });
     makeCheckpoint(s.text + s.id);
   }, [applyFactors, makeCheckpoint]);
 
@@ -409,6 +417,7 @@ function NervaApp() {
   // Parse failure falls back to offline estimate.
   const onScore = useACb(async () => {
     setEstimateNote('Checking…');
+    va('score_it', { chars: text.length });
 
     // Stage 1 + 2: keyword pre-screen then AI safety gate (fail-closed)
     const ns = window.NervaSafety;
@@ -417,7 +426,9 @@ function NervaApp() {
         ? await ns.checkSafety(text)
         : (_NA.classify(text) !== 'ok' ? _NA.classify(text) : 'safe');
       if (category !== 'safe') {
-        setSafetyFlag(category === 'crisis' ? 'crisis' : 'professional');
+        const flag = category === 'crisis' ? 'crisis' : 'professional';
+        setSafetyFlag(flag);
+        va('safety_flag', { category: flag });
         setEstimateNote(null);
         return;
       }
@@ -474,7 +485,8 @@ function NervaApp() {
       {view === 'compose'
         ? <ComposeView text={text} setText={setText} onScore={onScore} onSample={onSample} estimateNote={estimateNote} />
         : <CheckpointView text={text} cid={cid} onReset={reset}
-            onMath={() => setMathOpen(true)} onAdjust={() => setAdjustOpen(true)}
+            onMath={() => { va('math_opened'); setMathOpen(true); }}
+            onAdjust={() => { va('adjust_opened'); setAdjustOpen(true); }}
             verdictStyle={t.verdict} texture={t.texture} ticks={t.ticks} />}
 
       <div style={{ height: 'max(28px, env(safe-area-inset-bottom))', flexShrink: 0 }} />
