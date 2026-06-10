@@ -381,7 +381,7 @@ function NervaV11Mobile() {
                 {result.flags.one_way_brake && !result.flags.low_confidence_brake && '◆ ONE-WAY BRAKE'}
               </div>
               <div style={{ font:`italic 12px/1.45 ${tm.serif}`, color: tm.ink, marginTop: 6 }}>
-                {result.flags.low_confidence_brake && 'Integrity-axis inputs (Sp, St) are guesses on an irreversible decision. v11 forces ESCALATE regardless of point estimates.'}
+                {result.flags.low_confidence_brake && 'Integrity-axis inputs (Sp, St) are guesses on an irreversible decision. v11 forces CONSULT regardless of point estimates.'}
                 {!result.flags.low_confidence_brake && result.flags.one_way_brake && 'Decision is irreversible with weak integrity foundation. Human authorization required.'}
                 {result.flags.toxic_veto && 'Low integrity × high risk. No autonomous action under any circumstance.'}
                 {result.flags.emergency_override && 'High urgency on irreversible decision. Cannot WAIT for data; routing to human.'}
