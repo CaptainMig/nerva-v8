@@ -293,7 +293,7 @@
         It sits between a proposed automated action — a trade, a strike, a lane-change, a media buy —
         and its execution. It accepts five normalized inputs (urgency, strategy, risk, support, stability),
         maps them onto a Bloch-vector geometry drawn from canonical quantum-information mathematics, and
-        returns one of five verdicts <span class="verdict-list">COMMIT · HOLD · WAIT · ESCALATE · TOXIC</span>
+        returns one of five verdicts <span class="verdict-list">COMMIT · HOLD · WAIT · CONSULT · TOXIC</span>
         with full mathematical provenance for every call.
       </p>
       <p>
@@ -564,28 +564,35 @@
 
       <div class="qa-block">
         <div class="q">Q · what is "the data field around the state space"?</div>
-        <div class="a-head">An envelope, sized by (1 − C).</div>
+        <div class="a-head">An isotropic envelope, sized by (1 − C).</div>
         <div class="a-body">
-          The cloud surrounding the point in state space is the uncertainty envelope. It is
-          <em>anisotropic</em> — the per-axis confidences (c<sub>E</sub>, c<sub>S</sub>, c<sub>R</sub>,
-          c<sub>Sp</sub>, c<sub>St</sub>) stretch the envelope along the axis with the weakest data.
-          More and better API data collapses that envelope toward a point and the point itself slides
-          outward along its radial direction. The verdict reads the dot's distance from origin;
-          the audit trail reads the envelope.
+          The cloud surrounding the point in state space is the uncertainty envelope. In v11 it is
+          <em>isotropic</em> — the envelope radius is set uniformly by the scalar aggregate
+          C&nbsp;=&nbsp;Σ&nbsp;w<sub>i</sub>·c<sub>i</sub>, so shrinkage is the same in every direction:
+          r<sub>mixed</sub>&nbsp;=&nbsp;C&nbsp;·&nbsp;r<sub>pure</sub>.
+          The per-axis confidences (c<sub>E</sub>, c<sub>S</sub>, c<sub>R</sub>, c<sub>Sp</sub>,
+          c<sub>St</sub>) are preserved in the audit trail for every call and visible to the operator,
+          but they aggregate to a single shrinkage factor rather than stretching the envelope per-axis.
+          More and better API data raises C, collapses the envelope toward a point, and slides that
+          point outward along its radial direction toward the unit sphere.
+          Per-axis (anisotropic) shrinkage — where each confidence independently deforms the envelope
+          along its own axis — is a planned v12 extension.
         </div>
       </div>
 
       <div class="qa-block">
-        <div class="q">Q · what about predetermined vs existential?</div>
+        <div class="q">Q · what do |r| = 1 and |r| = 0 mean for a decision?</div>
         <div class="a-head">Decisions live in the interior.</div>
         <div class="a-body">
           In Nielsen &amp; Chuang Ch. 11 terms: a <strong style="color:var(--ink)">pure state</strong>
-          (|r| = 1, on the surface of the Bloch sphere) is the predetermined case — definite, maximum
-          information, no uncertainty. A <strong style="color:var(--ink)">maximally mixed state</strong>
-          (|r| = 0, at the origin) is the existential case — everything is equally possible, no
-          information. NERVA lives in between. Every real decision starts somewhere in the interior.
-          The pilot data moves it outward. You never reach the surface — but you can get close
-          enough to act, and the audit trail proves how close.
+          (|r| = 1, on the surface of the Bloch sphere) represents <em>complete information</em>
+          about the state — not a predetermined outcome. Measurement in a non-eigenbasis is still
+          probabilistic; what is maximal is the information, not the certainty of any particular result.
+          A <strong style="color:var(--ink)">maximally mixed state</strong>
+          (|r| = 0, at the origin) represents <em>zero information</em> — the state is fully unknown.
+          NERVA lives in between. Every real decision starts somewhere in the interior.
+          Pilot data moves it outward toward the surface. The audit trail records exactly how much
+          information was available when the call was made.
         </div>
       </div>
     </div>
@@ -602,8 +609,10 @@
       <div class="name">Pure state · |r| = 1</div>
       <div class="formula">ρ = ½ (I + r · σ⃗)</div>
       <div class="meaning">
-        <em>The predetermined.</em> On the surface of the Bloch sphere. Full information.
-        Maximum certainty. A decision that requires no further evidence.
+        <em>Full information about the state.</em> On the surface of the Bloch sphere.
+        |r|&nbsp;=&nbsp;1 is maximal information — not a predetermined outcome. Measurement
+        in a non-eigenbasis remains probabilistic; what is complete is the knowledge of the state,
+        not the result of any particular measurement.
       </div>
       <div class="ref-line">Nielsen &amp; Chuang Ch. 2 · pure states are |ψ⟩⟨ψ|</div>
     </div>
@@ -613,9 +622,10 @@
       <div class="name">Mixed state · |r| &lt; 1</div>
       <div class="formula">ρ = C · ρ<sub>pure</sub> + (1 − C) · I/2</div>
       <div class="meaning">
-        <em>The existential — where decisions actually live.</em> In the interior. Partial information.
-        The shrinkage factor C is set by the data field. Every NERVA verdict carries the receipt of
-        how mixed its state was when the call was made.
+        <em>Partial information — where decisions actually live.</em> In the interior.
+        The shrinkage factor C is set by the data field: the less you know, the closer to the origin.
+        Every NERVA verdict carries the receipt of how much information was available when the call
+        was made.
       </div>
       <div class="ref-line">Nielsen &amp; Chuang Ch. 11 · convex combination with maximally mixed state I/2</div>
     </div>
