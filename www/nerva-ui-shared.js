@@ -34,6 +34,16 @@
     TOXIC:    '#ff5c6c',
   };
 
+  // Display labels — kernel returns 'ESCALATE' internally; UI surfaces 'CONSULT'.
+  // Use VERDICT_LABEL[result.decision] wherever the verdict name is shown to users.
+  var VERDICT_LABEL = {
+    COMMIT:   'COMMIT',
+    HOLD:     'HOLD',
+    WAIT:     'WAIT',
+    ESCALATE: 'CONSULT',
+    TOXIC:    'TOXIC',
+  };
+
   // Short verdict glosses — the instrument subtitle under the word
   var VGLOSS = {
     COMMIT:   'clear to act',
@@ -227,7 +237,7 @@
   }
 
   window.NERVA = {
-    T: T, VC: VC, VGLOSS: VGLOSS,
+    T: T, VC: VC, VGLOSS: VGLOSS, VERDICT_LABEL: VERDICT_LABEL,
     FACTORS: FACTORS, CONF_LEVELS: CONF_LEVELS, aggToLevelIdx: aggToLevelIdx,
     confBand: confBand, confChipLabel: confChipLabel, confColor: confColor, confPhrase: confPhrase,
     verdictWord: verdictWord, weakestByConfidence: weakestByConfidence,
