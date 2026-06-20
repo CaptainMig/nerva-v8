@@ -53,7 +53,7 @@ button{cursor:pointer;font-family:inherit}
 .prose-card{background:#0f1419;border:1px solid rgba(255,255,255,0.06);border-radius:6px;padding:16px}
 .prose-card-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.16em;color:#4cc9f0;margin-bottom:6px}
 .prose-card-body{font-size:13px;color:rgba(216,221,230,0.6);line-height:1.55}
-.prose-formula{background:#0a0e14;border-left:3px solid #4cc9f0;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#b8d4f0;margin:12px 0;line-height:1.8}
+.prose-formula{background:#0a0e14;border-left:3px solid #4cc9f0;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#b8d4f0;margin:12px 0;line-height:1.8;white-space:pre-wrap;overflow-x:auto}
 .prose-warn{background:rgba(255,140,66,0.08);border:1px solid rgba(255,140,66,0.25);border-radius:6px;padding:14px 16px;font-size:13px;color:rgba(255,200,150,0.85);margin:12px 0}
 .prose-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.14em;padding:3px 8px;border-radius:3px;margin-right:6px}
 .live-val{font-family:'JetBrains Mono',monospace;color:#3ddc97;font-size:12px}
@@ -360,8 +360,8 @@ function AboutView(){
         <div className="prose-section">
           <div className="prose-h2">How It Works</div>
           <p className="prose-body">Each decision is mapped to five input dimensions: urgency (E), strategy quality (S), risk exposure (R), evidence support (Sp), environmental stability (St). These collapse into a normalized Bloch vector — a point inside a unit sphere representing the decision state.</p>
-          <div className="prose-formula">{`r_x = (E + S) / 2√3    // intent axis
-r_y = R / √3           // risk axis  
+          <div className="prose-formula">{`r_x = (E + S) / 2√3   // intent axis
+r_y = R / √3          // risk axis
 r_z = (Sp × St) / √3  // integrity axis
 |r| = √(r_x² + r_y² + r_z²)   guaranteed ≤ 1`}</div>
           <p className="prose-body">From that state, NERVA computes density matrix metrics — entropy, purity, coherence — and derives an information-theoretic commitment threshold. The threshold adapts: higher uncertainty and higher stakes raise the bar for action.</p>
