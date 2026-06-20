@@ -41,7 +41,7 @@
     -webkit-font-smoothing: antialiased;
   }
   .page {
-    width: 1200px; min-height: 1600px; margin: 24px auto;
+    width: min(1200px, 100%); min-height: 1600px; margin: 24px auto;
     background: var(--paper); position: relative;
     box-shadow: 0 30px 80px rgba(21,17,11,0.06), 0 4px 12px rgba(21,17,11,0.04);
   }
@@ -260,6 +260,32 @@
   }
   .footer .right { text-align: right; }
   .footer .canonical { color: var(--ink); font-weight: 600; letter-spacing: 0.18em; }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 860px) {
+    .page { margin: 0; min-height: 0; box-shadow: none; }
+    .hdr { grid-template-columns: 1fr; gap: 16px; padding: 28px 24px 20px; align-items: center; text-align: center; }
+    .hdr-l, .hdr-r { text-align: center; }
+    .hdr-c h1 { font-size: 32px; }
+    .primer { grid-template-columns: 1fr; gap: 10px; padding: 18px 24px 4px; }
+    .primer-body { columns: 1; }
+    .verticals { grid-template-columns: 1fr 1fr; gap: 12px; padding: 22px 24px 8px; }
+    .pipeline { padding: 16px 24px 8px; }
+    .stage { grid-template-columns: 1fr; gap: 8px; padding: 12px 16px; }
+    .stage-meta { text-align: left; }
+    .inputs-row { grid-template-columns: 1fr 1fr; }
+    .state { grid-template-columns: 1fr; gap: 26px; padding: 28px 24px 24px; }
+    .contract { grid-template-columns: 1fr; padding: 14px 24px 28px; }
+    .footer { grid-template-columns: 1fr; gap: 14px; padding: 18px 24px 28px; }
+    .footer .right { text-align: left; }
+  }
+  @media (max-width: 480px) {
+    .hdr { padding: 22px 16px 16px; }
+    .hdr-c h1 { font-size: 26px; }
+    .primer, .pipeline, .state, .contract, .footer { padding-left: 16px; padding-right: 16px; }
+    .verticals { grid-template-columns: 1fr; padding-left: 16px; padding-right: 16px; }
+    .inputs-row { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
