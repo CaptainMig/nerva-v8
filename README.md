@@ -136,3 +136,60 @@ The lift score — the empirical hit-rate of decisions that followed NERVA versu
 ---
 
 *NERVA v10 platform · v11 primary instrument · Starpoint LLC · patent pending*
+
+---
+
+## Dual-Scorer Shadow Track (branch `shadow/dual-scorer`)
+
+Shadow-mode evaluation only: Grok (xAI) runs as a second-opinion scorer in
+parallel with the primary path on the same inputs, logging everything and
+changing nothing. **Verdicts of record come from the frozen `v11.1-stable`
+kernel only** — the shadow track never touches kernel math, τ, verdict logic,
+Examen, or any deployed Vercel surface, and nothing downstream consumes its
+output in this phase. Instrumentation, not integration.
+
+### How the kernel stays frozen
+`shadow/kernel_bridge.mjs` executes `nerva-v11-core.jsx` **from the
+`v11.1-stable` tag blob** (`git show v11.1-stable:nerva-v11-core.jsx`), never
+from the working tree. Editing the JSX on this branch cannot change shadow
+results; every record carries `kernel_ref` and `kernel_blob_sha`.
+
+### SDK choice
+Grok is called through the **xAI OpenAI-compatible endpoint**
+(`https://api.x.ai/v1`) via the `openai` package with structured outputs
+(`json_schema`) — the most stable structured-JSON path shown in the
+xai-cookbook examples, and the same plumbing this repo already uses. The
+rubric mirrors `api/parse.js` verbatim (axes E/S/R/Sp/St + per-axis
+confidences); Grok additionally returns per-axis rationales.
+
+### Setup
+```bash
+cp .env.example .env        # set XAI_API_KEY (never committed)
+pip install openai pytest
+python3 -m pytest tests/ -q
+python3 -m shadow.harness inputs.jsonl        # parse.js-shaped JSONL + scenario text
+python3 -m shadow.analyze_shadow              # report over shadow_logs/
+```
+Logs are append-only JSONL in `shadow_logs/YYYY-MM-DD.jsonl` (gitignored).
+API keys and raw API responses are never logged. Exact model version strings
+are logged on every call; if either model string changes, the `run_id` epoch
+rolls and statistics must not be pooled across the boundary.
+
+### Verdict vocabulary
+The frozen kernel emits `ESCALATE`; current product copy calls the same
+verdict `CONSULT`. Shadow logs record what the kernel says — read
+`ESCALATE` in logs as `CONSULT` in copy.
+
+### Promotion gate (documented, not implemented)
+No promotion decision before **50 calibrated shadow-scored inputs**, of which
+at least **10 low-C cases (`C_empirical < 0.7`) have been human-reviewed**.
+Until then the dual scorer makes no claims of lift — it adds provenance, not
+prediction. Provisional constants and protocol caveats: see
+[SHADOW_NOTES.md](SHADOW_NOTES.md).
+
+### One-Way Brake invariant
+In any future promotion, Grok dissent may reduce C or escalate a verdict
+toward HOLD/WAIT/CONSULT; **subsequent agreement must never release a tripped
+brake or upgrade a verdict**. Encoded in `shadow/brake.py`
+(`can_release_brake(...)` always returns `False`) and pinned by
+`tests/test_brake_invariant.py`.
